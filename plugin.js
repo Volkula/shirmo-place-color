@@ -4,6 +4,8 @@
   let imageUrl = "";
   let seq = 0;
   let pushedAt = 0;
+  let litHex = "";
+  let swatchNode = null;
   const tones = {};
 
   function take(next) {
@@ -52,10 +54,32 @@
 
   window.ShirmoTone = { read: read };
 
+  function lightOn() {
+    try {
+      const rows = window.ShirmoPlugins && window.ShirmoPlugins.panels && window.ShirmoPlugins.panels();
+      return !!(rows && rows.some(function (row) { return row && row.id === "adaptive-light"; }));
+    } catch (err) { return false; }
+  }
+
   function frameColor(bag) {
+    if (lightOn()) {
+      if (litHex) return litHex;
+      const tone = read(loc);
+      return tone.color || tone.dominant || bag.pick;
+    }
     if (bag.mode === "pick") return bag.pick;
     const tone = read(loc);
     return tone.dominant || tone.color || bag.pick;
+  }
+
+  function takeLight(rgb) {
+    if (!rgb || rgb.length < 3) return;
+    litHex = "#" + [0, 1, 2].map(function (i) {
+      return Math.max(0, Math.min(255, Math.round(Number(rgb[i]) || 0))).toString(16).padStart(2, "0");
+    }).join("");
+    const bag = store();
+    if (swatchNode && bag && lightOn()) swatchNode.style.background = litHex;
+    if (bag && bag.frame && lightOn()) pushFrame(true);
   }
 
   function dropMasterFrame() {
@@ -139,9 +163,12 @@
     host.innerHTML = "";
     const box = document.createElement("div");
     box.className = "place-color";
+    const tied = lightOn();
     const lead = document.createElement("p");
     lead.className = "note";
-    lead.textContent = "Остальные плагины берут отсюда цвет и яркость локации. Рамка рисуется вокруг экрана.";
+    lead.textContent = tied
+      ? "Цвет рамки совпадает с подсветкой. Ползунок задаёт только плотность рамки."
+      : "Подсветка выключена, поэтому цвет рамки задаётся здесь.";
     const show = document.createElement("label");
     show.className = "check";
     const showBox = document.createElement("input");
@@ -197,12 +224,15 @@
     swatch.style.border = "1px solid #8a6a3a";
     swatch.style.background = frameColor(bag);
     swatch.style.opacity = String(bag.bright / 100);
+    swatchNode = swatch;
     showBox.addEventListener("change", function () {
       bag.frame = showBox.checked;
       save();
       pushFrame(true);
     });
-    box.append(lead, show, modes, color, level, swatch);
+    box.append(lead, show);
+    if (!tied) box.append(modes, color);
+    box.append(level, swatch);
     host.append(box);
   }
 
@@ -228,6 +258,7 @@
         return host;
       },
       boot: function (env) { take(env); window.ShirmoTone = { read: read }; pushFrame(true); },
+      rgb: { frame: function (rgb) { takeLight(rgb); } },
       place: function (place, image) {
         loc = place || null;
         imageUrl = image || "";
