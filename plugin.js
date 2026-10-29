@@ -112,14 +112,7 @@
   function sample(url, place) {
     if (!url || !place || !place.id) return;
     const known = tones[place.id];
-    if (known && known.url === url) {
-      if (loc && loc.id === place.id) {
-        window.dispatchEvent(new Event("shirmo-tone"));
-        const bag = store();
-        if (bag && bag.frame && bag.mode === "common") pushFrame(true);
-      }
-      return;
-    }
+    if (known && known.url === url) return;
     const image = new Image();
     image.onload = function () {
       try {
@@ -260,10 +253,11 @@
       boot: function (env) { take(env); window.ShirmoTone = { read: read }; pushFrame(true); },
       rgb: { frame: function (rgb) { takeLight(rgb); } },
       place: function (place, image) {
+        const same = loc && place && loc.id === place.id && imageUrl === (image || "");
         loc = place || null;
         imageUrl = image || "";
         if (loc && imageUrl) sample(imageUrl, loc);
-        else window.dispatchEvent(new Event("shirmo-tone"));
+        if (same) return;
         const bag = store();
         if (bag && bag.frame) pushFrame(true);
       },

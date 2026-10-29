@@ -1,6 +1,6 @@
 {
   "id": "place-color",
   "name": "Цвет локаций",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "main": "plugin.js"
 }
