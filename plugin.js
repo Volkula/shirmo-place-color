@@ -58,7 +58,72 @@
     return tone.dominant || tone.color || bag.pick;
   }
 
+  let edgeBeat = 0;
+
+  function placeEdge(layer) {
+    const stage = document.querySelector(".stage");
+    if (!stage) {
+      layer.style.top = "0px";
+      layer.style.left = "0px";
+      layer.style.width = "100vw";
+      layer.style.height = "100vh";
+      return;
+    }
+    const rect = stage.getBoundingClientRect();
+    if (rect.width < 8 || rect.height < 8) {
+      layer.style.top = "0px";
+      layer.style.left = "0px";
+      layer.style.width = "100vw";
+      layer.style.height = "100vh";
+      return;
+    }
+    layer.style.top = Math.round(rect.top) + "px";
+    layer.style.left = Math.round(rect.left) + "px";
+    layer.style.width = Math.round(rect.width) + "px";
+    layer.style.height = Math.round(rect.height) + "px";
+  }
+
+  function paintLocal() {
+    const bag = store();
+    let layer = document.getElementById("play-frame");
+    if (!bag || bag.frame !== true) {
+      if (edgeBeat) cancelAnimationFrame(edgeBeat);
+      edgeBeat = 0;
+      if (layer) layer.remove();
+      return;
+    }
+    if (!layer) {
+      layer = document.createElement("div");
+      layer.id = "play-frame";
+      document.body.appendChild(layer);
+    }
+    const color = /^#[0-9a-f]{6}$/i.test(frameColor(bag) || "") ? frameColor(bag) : bag.pick;
+    const hex = color.slice(1);
+    const r = parseInt(hex.slice(0, 2), 16);
+    const g = parseInt(hex.slice(2, 4), 16);
+    const b = parseInt(hex.slice(4, 6), 16);
+    const alpha = Math.max(0, Math.min(1, bag.bright / 100));
+    const ink = "rgba(" + r + "," + g + "," + b + "," + alpha + ")";
+    layer.style.position = "fixed";
+    layer.style.zIndex = "74";
+    layer.style.pointerEvents = "none";
+    layer.style.boxSizing = "border-box";
+    layer.style.border = "28px solid " + ink;
+    layer.style.boxShadow = "inset 0 0 90px 18px " + ink;
+    placeEdge(layer);
+    if (!edgeBeat) {
+      const tick = function () {
+        const node = document.getElementById("play-frame");
+        if (!node) { edgeBeat = 0; return; }
+        placeEdge(node);
+        edgeBeat = requestAnimationFrame(tick);
+      };
+      tick();
+    }
+  }
+
   function pushFrame(force) {
+    paintLocal();
     const bag = store();
     if (!bag || !ctx || !ctx.roomId) return;
     const now = Date.now();
@@ -135,7 +200,7 @@
     box.className = "place-color";
     const lead = document.createElement("p");
     lead.className = "note";
-    lead.textContent = "Остальные плагины берут отсюда цвет и яркость локации. Рамка рисуется на экране игроков.";
+    lead.textContent = "Остальные плагины берут отсюда цвет и яркость локации. Рамка рисуется вокруг экрана.";
     const show = document.createElement("label");
     show.className = "check";
     const showBox = document.createElement("input");
@@ -207,6 +272,10 @@
       pushFrame(true);
       bag.frame = true;
     }
+    if (edgeBeat) cancelAnimationFrame(edgeBeat);
+    edgeBeat = 0;
+    const layer = document.getElementById("play-frame");
+    if (layer) layer.remove();
     try { delete window.ShirmoTone; } catch (err) { window.ShirmoTone = undefined; }
   }
 
@@ -214,6 +283,12 @@
     host.add({
       id: "place-color",
       icon: '<rect x="4" y="4" width="16" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="8" y="8" width="8" height="8" fill="currentColor"/>',
+      settings: function (env) {
+        take(env);
+        const host = document.createElement("div");
+        mount(host);
+        return host;
+      },
       boot: function (env) { take(env); window.ShirmoTone = { read: read }; pushFrame(true); },
       place: function (place, image) {
         loc = place || null;
