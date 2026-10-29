@@ -58,72 +58,13 @@
     return tone.dominant || tone.color || bag.pick;
   }
 
-  let edgeBeat = 0;
-
-  function placeEdge(layer) {
-    const stage = document.querySelector(".stage");
-    if (!stage) {
-      layer.style.top = "0px";
-      layer.style.left = "0px";
-      layer.style.width = "100vw";
-      layer.style.height = "100vh";
-      return;
-    }
-    const rect = stage.getBoundingClientRect();
-    if (rect.width < 8 || rect.height < 8) {
-      layer.style.top = "0px";
-      layer.style.left = "0px";
-      layer.style.width = "100vw";
-      layer.style.height = "100vh";
-      return;
-    }
-    layer.style.top = Math.round(rect.top) + "px";
-    layer.style.left = Math.round(rect.left) + "px";
-    layer.style.width = Math.round(rect.width) + "px";
-    layer.style.height = Math.round(rect.height) + "px";
-  }
-
-  function paintLocal() {
-    const bag = store();
-    let layer = document.getElementById("play-frame");
-    if (!bag || bag.frame !== true) {
-      if (edgeBeat) cancelAnimationFrame(edgeBeat);
-      edgeBeat = 0;
-      if (layer) layer.remove();
-      return;
-    }
-    if (!layer) {
-      layer = document.createElement("div");
-      layer.id = "play-frame";
-      document.body.appendChild(layer);
-    }
-    const color = /^#[0-9a-f]{6}$/i.test(frameColor(bag) || "") ? frameColor(bag) : bag.pick;
-    const hex = color.slice(1);
-    const r = parseInt(hex.slice(0, 2), 16);
-    const g = parseInt(hex.slice(2, 4), 16);
-    const b = parseInt(hex.slice(4, 6), 16);
-    const alpha = Math.max(0, Math.min(1, bag.bright / 100));
-    const ink = "rgba(" + r + "," + g + "," + b + "," + alpha + ")";
-    layer.style.position = "fixed";
-    layer.style.zIndex = "74";
-    layer.style.pointerEvents = "none";
-    layer.style.boxSizing = "border-box";
-    layer.style.border = "28px solid " + ink;
-    layer.style.boxShadow = "inset 0 0 90px 18px " + ink;
-    placeEdge(layer);
-    if (!edgeBeat) {
-      const tick = function () {
-        const node = document.getElementById("play-frame");
-        if (!node) { edgeBeat = 0; return; }
-        placeEdge(node);
-        edgeBeat = requestAnimationFrame(tick);
-      };
-      tick();
-    }
+  function dropMasterFrame() {
+    const layer = document.getElementById("play-frame");
+    if (layer && !document.querySelector(".viewer")) layer.remove();
   }
 
   function pushFrame(force) {
-    paintLocal();
+    dropMasterFrame();
     const bag = store();
     if (!bag || !ctx || !ctx.roomId) return;
     const now = Date.now();
@@ -272,10 +213,7 @@
       pushFrame(true);
       bag.frame = true;
     }
-    if (edgeBeat) cancelAnimationFrame(edgeBeat);
-    edgeBeat = 0;
-    const layer = document.getElementById("play-frame");
-    if (layer) layer.remove();
+    dropMasterFrame();
     try { delete window.ShirmoTone; } catch (err) { window.ShirmoTone = undefined; }
   }
 
